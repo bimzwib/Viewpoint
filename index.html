@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" type="image/png" href="favicon.png?v=5">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BIMZ Viewpoint Model Suffixer</title>
+<!--
+  BIMZ Viewpoint Model Suffixer
+  Loads the model boxes sheet (.csv or .xlsx: Model, MinX, MinY, MinZ, MaxX, MaxY, MaxZ) and a Navisworks
+  viewpoints XML. Each viewpoint is placed in a model by its camera position and view direction, then the
+  last 6 characters of that model name are added to the end of the viewpoint name.
+  Runs fully offline in any browser. Nothing to install, nothing is uploaded.
+  Author: ZIAD ANTER   Year: 2025
+  Script by ZIAD ANTER - 2025.
+-->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+  :root{color-scheme:light;--bg:#f0f4f8;--surface:#ffffff;--card:#f8fafc;--border:#cbd5e1;--accent:#0077ff;--accent2:#0055cc;--text:#1e293b;--title:#0f172a;--muted:#64748b;--green:#16a34a;--yellow:#ca8a04;--orange:#ea580c;--red:#dc2626}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,119,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,119,255,0.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+  .container{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:24px}
+  header{display:flex;align-items:center;gap:16px;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+  .logo-box{width:48px;height:48px;background:linear-gradient(135deg,var(--accent2),var(--accent));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;font-family:'Share Tech Mono',monospace;flex-shrink:0}
+  header h1{font-size:26px;font-weight:700;letter-spacing:2px;color:var(--title)}
+  header h1 span{color:var(--accent)}
+  .tag{font-size:12px;color:var(--muted);letter-spacing:1px;margin-top:2px}
+  .version-tag{margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);padding:4px 10px;border-radius:4px}
+  .sub{color:var(--muted);font-size:15px;margin:-14px 0 22px;line-height:1.5}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:700px){.grid{grid-template-columns:1fr}header{flex-wrap:wrap}.version-tag{margin-left:0}}
+  .drop{border:2px dashed var(--border);border-radius:16px;padding:36px 24px;text-align:center;cursor:pointer;transition:all .3s ease;background:var(--card)}
+  .drop:hover,.drop.over{border-color:var(--accent);background:rgba(0,119,255,0.05)}
+  .drop b{display:block;font-size:20px;font-weight:600;color:var(--title);margin-bottom:6px;letter-spacing:1px}
+  .drop small{color:var(--muted);font-size:14px}
+  .drop .file{margin-top:12px;display:inline-block;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:13px;font-family:'Share Tech Mono',monospace;color:var(--accent);word-break:break-all}
+  .drop .file:empty{display:none}
+  .drop.ok{border-style:solid;border-color:var(--green)}
+  .opts{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin:20px 0}
+  .opts label{color:var(--muted);display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+  input[type=text],select{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;letter-spacing:.5px;min-width:70px}
+  input[type=text]{width:120px}
+  input[type=text]:focus,select:focus{outline:none;border-color:var(--accent)}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 20px;flex:1;min-width:120px;text-align:center}
+  .stat b{display:block;font-size:28px;font-weight:700;font-family:'Share Tech Mono',monospace;color:var(--accent)}
+  .stat span{font-size:12px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+  button{padding:12px 28px;border-radius:8px;border:none;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;letter-spacing:1px;cursor:pointer;transition:all .2s ease;background:linear-gradient(135deg,var(--accent2),var(--accent));color:#fff;box-shadow:0 0 20px rgba(0,119,255,0.2)}
+  button:not(:disabled):hover{transform:translateY(-2px);box-shadow:0 4px 24px rgba(0,119,255,0.4)}
+  button:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+  .ml{max-height:150px;overflow:auto;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:10px 14px;margin-bottom:14px;columns:2;font-size:12px;font-family:'Share Tech Mono',monospace;color:var(--muted)}
+  .ml label{display:block;break-inside:avoid;cursor:pointer}.ml input{margin-right:6px;accent-color:var(--accent)}
+  .tw{max-height:430px;overflow:auto;border:1px solid var(--border);background:var(--surface);border-radius:10px;margin-top:12px}
+  table{width:100%;border-collapse:collapse;font-size:14px;font-weight:500}
+  th{position:sticky;top:0;background:var(--card);text-align:left;padding:10px 12px;color:var(--muted);font-size:12px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+  td{padding:7px 12px;border-top:1px solid var(--border)}
+  tr:hover td{background:rgba(0,119,255,0.04)}
+  .c{font-family:'Share Tech Mono',monospace;text-align:center;color:var(--accent)}
+  .s-ok{color:var(--green)}.s-same{color:var(--muted)}.s-chk{color:var(--orange);font-weight:700}
+  #msg{margin:12px 0;color:var(--orange);font-weight:600}
+  footer{margin-top:32px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);font-size:13px;text-align:center;letter-spacing:.5px}
+  footer .links{margin-top:8px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+  footer a{color:var(--accent);text-decoration:none;font-weight:700;letter-spacing:1px}
+  footer a:hover{color:var(--accent2);text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo-box">BZ</div>
+    <div>
+      <h1>BIMZ <span>VIEWPOINT SUFFIXER</span></h1>
+      <div class="tag">NAVISWORKS VIEWPOINT MODEL TAGGER</div>
+    </div>
+    <div class="version-tag">v1.0 · by ZIAD ANTER</div>
+  </header>
+  <p class="sub">Load the model boxes sheet and the viewpoints XML. Each viewpoint is placed in its model and renamed with the last 6 characters of that model name.</p>
+
+  <div class="grid">
+    <div class="drop" id="z1"><b>1. Model boxes sheet</b><small>.csv or .xlsx: Model, MinX, MinY, MinZ, MaxX, MaxY, MaxZ</small><div class="file" id="f1"></div></div>
+    <div class="drop" id="z2"><b>2. Viewpoints XML</b><small>Navisworks viewpoints export (.xml)</small><div class="file" id="f2"></div></div>
+  </div>
+  <input type="file" id="i1" accept=".xlsx,.csv,.txt" hidden>
+  <input type="file" id="i2" accept=".xml" hidden>
+
+  <div class="opts">
+    <label>Use models whose name contains<input type="text" id="flt" value="-AR-" title="Comma separated. Leave empty to use all models."></label>
+    <label>Basement model<select id="base"></select></label>
+    <label>Basement level starts with<input type="text" id="pre" value="B" style="width:60px"></label>
+    <label>Separator<input type="text" id="sep" value=" - " style="width:60px"></label>
+    <button id="save" disabled>Save renamed XML</button>
+  </div>
+  <div class="ml" id="ml" hidden></div>
+  <div id="msg"></div>
+  <div class="stats" id="stats" hidden></div>
+  <div class="tw" id="tw" hidden>
+    <table><thead><tr><th>Viewpoint (original)</th><th class="c">Suffix</th><th>Basis</th></tr></thead><tbody id="tb"></tbody></table>
+  </div>
+  <footer>
+    <div>by ZIAD ANTER · DIRECT Engineering Consultants</div>
+    <div class="links" id="links"></div>
+    <div style="margin-top:6px">Script by ZIAD ANTER - 2025</div>
+  </footer>
+</div>
+
+<script>
+"use strict";
+console.log("Script by ZIAD ANTER - 2025.");
+const $ = s => document.querySelector(s);
+/* Your links go here, for example {label: "WEBSITE", url: "https://..."}. Leave it empty to show none. */
+const LINKS = [];
+$("#links").innerHTML = LINKS.map(l => `<a href="${l.url}" target="_blank" rel="noopener">${l.label}</a>`).join("");
+let models = [], views = [], xmlText = null, xmlName = "", outText = "";
+
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const unesc = s => s.replace(/&(#x?[0-9a-fA-F]+|amp|lt|gt|quot|apos);/g, (m, e) => {
+  if (e[0] === "#") return String.fromCodePoint(/^#[xX]/.test(e) ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10));
+  return {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'"}[e];
+});
+const html = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/* ---------- CSV ---------- */
+function parseCSV(t) {
+  t = t.replace(/^\uFEFF/, "");
+  const first = t.split(/\r?\n/)[0];
+  const d = [",", ";", "\t"].map(c => [c, first.split(c).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const rows = []; let r = [], f = "", q = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (q) { if (c === '"') { if (t[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === d) { r.push(f); f = ""; }
+    else if (c === "\n") { r.push(f); rows.push(r); r = []; f = ""; }
+    else if (c !== "\r") f += c;
+  }
+  if (f !== "" || r.length) { r.push(f); rows.push(r); }
+  return rows;
+}
+
+/* ---------- XLSX (built-in unzip, no libraries) ---------- */
+async function inflate(u8) {
+  const ds = new DecompressionStream("deflate-raw"), w = ds.writable.getWriter();
+  w.write(u8); w.close();
+  return new Uint8Array(await new Response(ds.readable).arrayBuffer());
+}
+async function unzip(buf) {
+  const dv = new DataView(buf), u8 = new Uint8Array(buf);
+  let e = u8.length - 22;
+  while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error("This is not a valid .xlsx file.");
+  const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true); const files = {};
+  for (let i = 0; i < n; i++) {
+    const method = dv.getUint16(p + 10, true), csz = dv.getUint32(p + 20, true),
+      nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lo = dv.getUint32(p + 42, true);
+    const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nl));
+    const start = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true);
+    files[name] = {method, data: u8.subarray(start, start + csz)};
+    p += 46 + nl + el + cl;
+  }
+  return files;
+}
+async function readEntry(files, name) {
+  const x = files[name]; if (!x) return null;
+  return new TextDecoder().decode(x.method === 0 ? x.data : await inflate(x.data));
+}
+async function parseXLSX(buf) {
+  const files = await unzip(buf), P = new DOMParser();
+  let ss = [];
+  const sx = await readEntry(files, "xl/sharedStrings.xml");
+  if (sx) ss = [...P.parseFromString(sx, "application/xml").getElementsByTagName("si")]
+    .map(si => [...si.getElementsByTagName("t")].map(t => t.textContent).join(""));
+  const sheets = Object.keys(files).filter(k => /^xl\/worksheets\/sheet\d+\.xml$/.test(k))
+    .sort((a, b) => +a.match(/sheet(\d+)/)[1] - +b.match(/sheet(\d+)/)[1]);
+  if (!sheets.length) throw new Error("No worksheet found in the file.");
+  const d = P.parseFromString(await readEntry(files, sheets[0]), "application/xml"), rows = [];
+  for (const row of d.getElementsByTagName("row")) {
+    const r = [];
+    for (const c of row.getElementsByTagName("c")) {
+      const m = (c.getAttribute("r") || "").match(/^[A-Z]+/); let ci = 0;
+      if (m) for (const ch of m[0]) ci = ci * 26 + ch.charCodeAt(0) - 64;
+      ci = ci ? ci - 1 : r.length;
+      const t = c.getAttribute("t"), v = c.getElementsByTagName("v")[0]; let val = "";
+      if (t === "s" && v) val = ss[+v.textContent] || "";
+      else if (t === "inlineStr") val = [...c.getElementsByTagName("t")].map(x => x.textContent).join("");
+      else if (v) val = v.textContent;
+      r[ci] = val;
+    }
+    rows.push(Array.from(r, x => x == null ? "" : String(x)));
+  }
+  return rows;
+}
+
+/* ---------- boxes and viewpoints ---------- */
+function readBoxes(rows) {
+  const hi = rows.findIndex(r => r.some(c => /^model$/i.test(c.trim())));
+  if (hi < 0) throw new Error("No Model column found. Expected: Model, MinX, MinY, MinZ, MaxX, MaxY, MaxZ.");
+  const h = rows[hi].map(c => c.trim().toLowerCase()), ix = ["model", "minx", "miny", "minz", "maxx", "maxy", "maxz"].map(n => h.indexOf(n));
+  if (ix.some(i => i < 0)) throw new Error("The sheet needs the columns Model, MinX, MinY, MinZ, MaxX, MaxY, MaxZ.");
+  const out = [];
+  for (const r of rows.slice(hi + 1)) {
+    const name = (r[ix[0]] || "").trim(), box = ix.slice(1).map(i => parseFloat(r[i]));
+    if (name && !box.some(isNaN)) out.push({name, code: name.replace(/\.[^.\\\/]*$/, "").slice(-6), box, on: false});
+  }
+  if (!out.length) throw new Error("No model rows were found in this sheet.");
+  return out;
+}
+function readViews(t) {
+  const d = new DOMParser().parseFromString(t, "application/xml");
+  return [...d.getElementsByTagName("view")].map(v => {
+    const p = v.getElementsByTagName("pos3f")[0], q = v.getElementsByTagName("quaternion")[0];
+    if (!p || !q) return {name: v.getAttribute("name") || "", p: null};
+    return {name: v.getAttribute("name") || "", p: ["x", "y", "z"].map(k => +p.getAttribute(k)), q: ["a", "b", "c", "d"].map(k => +q.getAttribute(k))};
+  });
+}
+const inXY = (p, b) => p[0] >= b[0] && p[0] <= b[3] && p[1] >= b[1] && p[1] <= b[4];
+const area = b => (b[3] - b[0]) * (b[4] - b[1]);
+function fwd(q) {
+  const [x, y, z, w] = q;
+  return [-(2 * (x * z + w * y)), -(2 * (y * z - w * x)), -(1 - 2 * (x * x + y * y))];
+}
+
+/* ---------- assignment ---------- */
+function assign(v, on, base, pre) {
+  const lv = (v.name.match(/^\s*\d+\s*\|\s*([A-Za-z]+\d*)/) || [])[1] || "";
+  if (lv && pre && lv.toUpperCase().startsWith(pre.toUpperCase())) return [base, "Basement level (" + lv + ")", false];
+  const bld = on.filter(m => m !== base);
+  if (!bld.length) return [base, "Only one model selected", false];
+  if (!v.p) return [base, "No camera data, check", true];
+  const cands = bld.filter(m => inXY(v.p, m.box));
+  if (cands.length === 1) return [cands[0], "Camera inside one building", false];
+  const f = fwd(v.q), sc = new Map();
+  for (const m of bld) sc.set(m, [0, 10, 20, 30, 40, 60].filter(t => inXY([v.p[0] + t * f[0], v.p[1] + t * f[1]], m.box)).length);
+  const pool = cands.length ? cands : bld, best = [...pool].sort((a, b) => sc.get(b) - sc.get(a));
+  if (!cands.length && sc.get(best[0]) === 0) {
+    const dist = m => { const b = m.box; return Math.hypot(Math.max(b[0] - v.p[0], 0, v.p[0] - b[3]), Math.max(b[1] - v.p[1], 0, v.p[1] - b[4])); };
+    return [[...bld].sort((a, b) => dist(a) - dist(b))[0], "Outside all boxes, nearest building, check", true];
+  }
+  if (best.length > 1 && sc.get(best[0]) === sc.get(best[1])) return [best[0], "Between buildings, check", true];
+  return [best[0], cands.length ? "Camera in overlap, by view direction" : "Camera outside boxes, by view direction", false];
+}
+
+function applyFilter() {
+  const terms = $("#flt").value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  models.forEach(m => m.on = !terms.length || terms.some(t => m.name.toLowerCase().includes(t)));
+  if (!models.some(m => m.on)) models.forEach(m => m.on = true);
+  drawModels();
+}
+function drawModels() {
+  $("#ml").hidden = false;
+  $("#ml").innerHTML = models.map((m, i) => `<label><input type="checkbox" data-i="${i}" ${m.on ? "checked" : ""}>${html(m.name)}</label>`).join("");
+  $("#ml").querySelectorAll("input").forEach(c => c.onchange = () => { models[+c.dataset.i].on = c.checked; fillBase(); run(); });
+  fillBase(); run();
+}
+function fillBase() {
+  const sel = $("#base"), keep = sel.value, on = models.filter(m => m.on);
+  sel.innerHTML = '<option value="auto">Auto (largest footprint)</option>' + on.map(m => `<option value="${models.indexOf(m)}">${html(m.name.replace(/\.[^.]*$/, "").slice(-12))}</option>`).join("");
+  if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
+}
+
+function run() {
+  const msg = $("#msg"); msg.textContent = "";
+  const on = models.filter(m => m.on);
+  if (!on.length || xmlText === null) { $("#save").disabled = true; return; }
+  const bv = $("#base").value, base = bv === "auto" ? [...on].sort((a, b) => area(b.box) - area(a.box))[0] : models[+bv] || on[0];
+  const sep = $("#sep").value || " ", es = esc(sep), codes = [...new Set(models.map(m => m.code))], pre = $("#pre").value.trim();
+  const strip = r => { for (const c of codes) if (r.endsWith(es + c)) return r.slice(0, -(es + c).length); return r; };
+  let i = 0; const log = [];
+  outText = xmlText.replace(/<view name="([^"]*)"/g, (m, raw) => {
+    const v = views[i++], [mod, why, chk] = assign(v, on, base, pre), base0 = strip(raw), nv = base0 + es + mod.code;
+    log.push([unesc(base0), mod.code, (nv === raw ? "Unchanged. " : "") + why, chk ? "s-chk" : nv === raw ? "s-same" : "s-ok"]);
+    return '<view name="' + nv + '"';
+  });
+  if (i !== views.length) { msg.textContent = "Could not read every viewpoint in this XML."; $("#save").disabled = true; return; }
+  const chk = log.filter(l => l[3] === "s-chk").length, used = new Set(log.map(l => l[1]));
+  $("#stats").hidden = $("#tw").hidden = false;
+  $("#stats").innerHTML = [["Viewpoints", log.length], ["Basement model", base.code], ["Models used", used.size], ["Need a check", chk]]
+    .map(([l, v]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+  $("#tb").innerHTML = log.map(l => `<tr><td>${html(l[0])}</td><td class="c">${l[1]}</td><td class="${l[3]}">${html(l[2])}</td></tr>`).join("");
+  if (chk) msg.textContent = chk + " viewpoint(s) are close to a building border or outside every box. Review them in the table.";
+  $("#save").disabled = !log.length;
+}
+
+async function save() {
+  const name = xmlName.replace(/\.xml$/i, "") + "_suffixed.xml", blob = new Blob([outText], {type: "application/xml"});
+  if (window.showSaveFilePicker) {
+    try {
+      const h = await showSaveFilePicker({suggestedName: name, types: [{description: "Navisworks viewpoints XML", accept: {"application/xml": [".xml"]}}]});
+      const w = await h.createWritable(); await w.write(blob); await w.close(); return;
+    } catch (e) { if (e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* ---------- file loading ---------- */
+async function loadSheet(f) {
+  try {
+    if (/\.xls$/i.test(f.name)) throw new Error("Old .xls is not supported. Save it as .xlsx or .csv.");
+    models = readBoxes(/\.xlsx$/i.test(f.name) ? await parseXLSX(await f.arrayBuffer()) : parseCSV(await f.text()));
+    $("#f1").textContent = f.name + " (" + models.length + " models)"; $("#z1").classList.add("ok");
+  } catch (e) { models = []; $("#z1").classList.remove("ok"); $("#f1").textContent = ""; $("#msg").textContent = e.message; return; }
+  applyFilter();
+}
+async function loadXml(f) {
+  const t = await f.text(), v = readViews(t);
+  if (!v.length) { xmlText = null; $("#z2").classList.remove("ok"); $("#f2").textContent = ""; $("#msg").textContent = "No viewpoints found in this XML."; return; }
+  xmlText = t; views = v; xmlName = f.name; $("#f2").textContent = f.name + " (" + v.length + " viewpoints)"; $("#z2").classList.add("ok");
+  run();
+}
+function zone(zid, iid, fn) {
+  const z = $(zid), i = $(iid);
+  z.onclick = () => i.click();
+  i.onchange = () => { if (i.files[0]) fn(i.files[0]); i.value = ""; };
+  z.ondragover = e => { e.preventDefault(); z.classList.add("over"); };
+  z.ondragleave = () => z.classList.remove("over");
+  z.ondrop = e => { e.preventDefault(); z.classList.remove("over"); if (e.dataTransfer.files[0]) fn(e.dataTransfer.files[0]); };
+}
+zone("#z1", "#i1", loadSheet); zone("#z2", "#i2", loadXml);
+$("#flt").oninput = () => { if (models.length) applyFilter(); };
+$("#base").onchange = $("#sep").oninput = $("#pre").oninput = run;
+$("#save").onclick = save;
+</script>
+</body>
+</html>
